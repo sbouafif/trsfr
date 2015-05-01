@@ -1,8 +1,12 @@
 {
   "name": "trsfr",
   "version": "0.0.0",
-  "description": "",
-  "keywords": [],
+  "description": "the best file transfer app",
+  "keywords": [
+    "trsfr",
+    "file",
+    "transfer"
+  ],
   "homepage": "https://github.com/sbouafif/trsfr",
   "bugs": "https://github.com/sbouafif/trsfr/issues",
   "author": {
@@ -16,7 +20,9 @@
   },
   "dependencies": {},
   "devDependencies": {
+    "browserify": "^10.0.0",
     "concat-files": "~0.1.0",
+    "flux": "^2.0.3",
     "grunt": "~0.4.5",
     "grunt-contrib-clean": "~0.6.0",
     "grunt-contrib-compress": "^0.10.0",
@@ -24,9 +30,18 @@
     "grunt-contrib-copy": "~0.5.0",
     "grunt-contrib-jshint": "~0.10.0",
     "grunt-contrib-rename": "0.0.3",
+    "gulp": "^3.8.11",
+    "gulp-browserify": "^0.5.1",
+    "gulp-jshint": "^1.10.0",
+    "gulp-sass": "^1.3.3",
+    "gulp-uglify": "^1.2.0",
+    "gulp-watch": "^4.2.4",
+    "jquery": "^2.1.4",
     "jsx": "^0.9.89",
+    "keychain": "0.0.4",
     "load-grunt-tasks": "^0.6.0",
     "node-webkit.jsx": "^0.1.1",
+    "pouchdb": "^3.4.0",
     "react": "^0.13.2",
     "ssh2": "^0.4.6",
     "time-grunt": "^0.4.0"
