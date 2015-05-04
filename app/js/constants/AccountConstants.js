@@ -1,0 +1,7 @@
+/**
+ * AccountConstants
+  **/
+
+module.exports = {
+
+};
