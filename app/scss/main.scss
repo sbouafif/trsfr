@@ -1,0 +1,12 @@
+@import 'reset';
+@import 'helpers';
+
+.hover {
+    .drag-drop-hover {
+        display: block;
+    }
+}
+
+.file {
+    -webkit-app-region: drag;
+}

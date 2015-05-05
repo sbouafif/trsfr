@@ -1,18 +1,24 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>trsfr</title>
-  <script>
-   var $ = require('jquery');
-  </script>
-  <script src='../js/trsfr.js'></script>
-</head>
-<body>
-  <section class='toolbar'>
-    <button data-btn='connect' class='connect'>Open</button>
-  </section>
-  <section class='files'>
-  </section>
-	<p>trsfr is the fastest file transfer app</p>
-</body>
+  <head>
+    <title>trsfr</title>
+    <script>
+     var ssh2 = require('ssh2'),
+         sftpStream = require('ssh2-streams').SFTPStream,
+         w = window;
+    </script>
+    <script src='../dist/js/trsfr.js'></script>
+    <link href="../dist/css/main.css" media="all" rel="stylesheet" />
+  </head>
+  <body>
+    <section class='toolbar'>
+      <button data-btn='connect' class='connect pull-left'>Open</button>
+      <button data-btn='reload' class='reload pull-left'>Reload</button>
+    </section>
+    <section class='files'>
+    </section>
+    <section class='drag-drop-hover hidden'>
+	    <p>hovering</p>
+    </section>
+  </body>
 </html>

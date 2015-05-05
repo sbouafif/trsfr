@@ -44,6 +44,7 @@
     "pouchdb": "^3.4.0",
     "react": "^0.13.2",
     "ssh2": "^0.4.6",
+    "ssh2-streams": "0.0.12",
     "time-grunt": "^0.4.0"
   },
   "engines": {
