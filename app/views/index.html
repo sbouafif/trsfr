@@ -5,20 +5,28 @@
     <script>
      var ssh2 = require('ssh2'),
          sftpStream = require('ssh2-streams').SFTPStream,
-         w = window;
+         w = window,
+         fs = require('fs');
     </script>
     <script src='../dist/js/trsfr.js'></script>
+    <link href="../bower_components/bootstrap/dist/css/bootstrap.min.css" media="all" rel="stylesheet" />
     <link href="../dist/css/main.css" media="all" rel="stylesheet" />
   </head>
   <body>
-    <section class='toolbar'>
+    <section class='toolbar col-lg-12 col-md-12 col-sm-12 col-xs-12 clearfix'>
       <button data-btn='connect' class='connect pull-left'>Open</button>
       <button data-btn='reload' class='reload pull-left'>Reload</button>
     </section>
-    <section class='files'>
+    <section class='filelist col-lg-12 col-md-12 col-sm-12 col-xs-12 clearfix'>
+      <section class='local files col-lg-6 col-md-6 col-sm-6 col-xs-12'>
+      </section>
+      <section class='network files col-lg-6 col-md-6 col-sm-6 col-xs-12'>
+      </section>
     </section>
+    <!--
     <section class='drag-drop-hover hidden'>
 	    <p>hovering</p>
     </section>
+    -->
   </body>
 </html>

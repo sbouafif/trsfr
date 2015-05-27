@@ -31,9 +31,13 @@ var accountStore = require('../js/stores/AccountStore');
 var Window = gui.Window.get();
 Window.showDevTools();
 
+var $localContainer = undefined;
+var $networkContainer = undefined;
+
 var app = app || {};
 
 app.server = {};
+app.local = {};
 app.server.config = {
     host: '192.168.44.44',
     port: 22,
@@ -42,6 +46,7 @@ app.server.config = {
 };
 
 app.server.path = '.';
+app.local.path = '.';
 
 var Client = ssh2.Client;
 
@@ -59,10 +64,33 @@ var exeSftp = function(callback) {
     }).connect(app.server.config);
 };
 
-var clearFileList = function() {
+var clearFileList = function($container) {
     console.log('FileList::Clear');
-    $('.files').html('');
+    $container.html('');
 }
+
+/** LOCAL **/
+var listLocalDir = function() {
+    console.log('FileList::'+app.local.path);
+    fs.readdir(app.local.path, function(err, files) {
+        console.log('--err--');
+        console.log(err);
+        console.log('--files--');
+        console.log(files);
+        var filesArray = new Array();
+        files.forEach(function(file) {
+            var f = {
+                filename: file
+            };
+            filesArray.push(f);
+        });
+        updateFileList(filesArray, $localContainer);
+
+    });
+};
+
+
+/** NETWORK **/
 
 var enableDownloads = function() {
     $('.get').each(function(i, d) {
@@ -88,14 +116,15 @@ var enableDownloads = function() {
     });
 };
 
-var updateFileList = function(list) {
-    clearFileList();
+var updateFileList = function(list, $container) {
+    clearFileList($container);
     console.log('FileList::Update');
+    $container.append("<div class='file go-up'>[<a data-filename='..' class='get' href='#'>up</a>] .. </div>");
     list.forEach(function(file) {
-        $('.files').append("<div class='file'>[<a data-filename='"+file.filename+"' class='get' href='#'>get</a>] "+file.filename+"</div>");
+        $container.append("<div class='file'>[<a data-filename='"+file.filename+"' class='get' href='#'>get</a>] "+file.filename+"</div>");
     });
 
-    $('.files .file').each(function(i, d) {
+    $container.find('.file').each(function(i, d) {
         $(d).on('dragstart', function(e) {
             console.log(e);
             //e.originalEvent.dataTransfer.setData("DownloadURL",fileDetails);
@@ -110,13 +139,16 @@ var listCurrentDir = function() {
     exeSftp(function(sftp) {
         sftp.readdir(app.server.path, function(err, list) {
             if (err) throw err;
-            updateFileList(list);
+            updateFileList(list, $networkContainer);
             conn.end();
         });
     });
 };
 
 $(function() {
+
+    $localContainer = $('.local.files');
+    $networkContainer = $('.network.files');
 
     $('.connect').on('click', function(e) {
         e.preventDefault();
@@ -127,7 +159,7 @@ $(function() {
 
     $('.reload').on('click', function(e) {
         e.preventDefault();
-
+        listLocalDir();
         listCurrentDir();
     });
 
@@ -189,7 +221,7 @@ $(function() {
     */
 });
 
-}).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_d0476bdc.js","/")
+}).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_23f379f6.js","/")
 },{"../js/dispatcher/AppDispatcher":2,"../js/stores/AccountStore":4,"buffer":10,"jquery":15,"oMfpAn":14}],4:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /**
@@ -281,7 +313,7 @@ AppDispatcher.register(
 );
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/stores/AccountStore.js","/stores")
-},{"../constants/AccountConstants":1,"../dispatcher/AppDispatcher":2,"buffer":10,"events":13,"keychain":16,"oMfpAn":14,"pouchdb":46}],5:[function(require,module,exports){
+},{"../constants/AccountConstants":1,"../dispatcher/AppDispatcher":2,"buffer":10,"events":13,"keychain":16,"oMfpAn":14,"pouchdb":47}],5:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /**
  * Copyright (c) 2014-2015, Facebook, Inc.
@@ -11818,55 +11850,7 @@ utils.inherits(AbstractPouchDB, EventEmitter);
 module.exports = AbstractPouchDB;
 
 function AbstractPouchDB() {
-  var self = this;
   EventEmitter.call(this);
-
-  var listeners = 0, changes;
-  var eventNames = ['change', 'delete', 'create', 'update'];
-  this.on('newListener', function (eventName) {
-    if (~eventNames.indexOf(eventName)) {
-      if (listeners) {
-        listeners++;
-        return;
-      } else {
-        listeners++;
-      }
-    } else {
-      return;
-    }
-    var lastChange = 0;
-    changes = this.changes({
-      conflicts: true,
-      include_docs: true,
-      continuous: true,
-      since: 'now',
-      onChange: function (change) {
-        if (change.seq <= lastChange) {
-          return;
-        }
-        lastChange = change.seq;
-        self.emit('change', change);
-        if (change.doc._deleted) {
-          self.emit('delete', change);
-        } else if (change.doc._rev.split('-')[0] === '1') {
-          self.emit('create', change);
-        } else {
-          self.emit('update', change);
-        }
-      }
-    });
-  });
-  this.on('removeListener', function (eventName) {
-    if (~eventNames.indexOf(eventName)) {
-      listeners--;
-      if (listeners) {
-        return;
-      }
-    } else {
-      return;
-    }
-    changes.cancel();
-  });
 }
 
 AbstractPouchDB.prototype.post =
@@ -12132,7 +12116,7 @@ AbstractPouchDB.prototype.compact =
 
   opts = utils.clone(opts || {});
 
-  self.get('_local/compaction')["catch"](function () {
+  self.get('_local/compaction').catch(function () {
     return false;
   }).then(function (doc) {
     if (typeof self._compact === 'function') {
@@ -12167,7 +12151,7 @@ AbstractPouchDB.prototype._compact = function (opts, callback) {
       });
     }).then(function () {
       callback(null, {ok: true});
-    })["catch"](callback);
+    }).catch(callback);
   }
   self.changes(changesOpts)
     .on('change', onChange)
@@ -12495,7 +12479,7 @@ AbstractPouchDB.prototype.bulkDocs =
 AbstractPouchDB.prototype.registerDependentDatabase =
   utils.adapterFun('registerDependentDatabase', function (dependentDb,
                                                           callback) {
-  var depDB = new this.constructor(dependentDb, this.__opts || {});
+  var depDB = new this.constructor(dependentDb, this.__opts);
 
   function diffFun(doc) {
     doc.dependentDbs = doc.dependentDbs || {};
@@ -12513,8 +12497,45 @@ AbstractPouchDB.prototype.registerDependentDatabase =
   });
 });
 
+AbstractPouchDB.prototype.destroy =
+  utils.adapterFun('destroy', function (callback) {
+
+  var self = this;
+  var usePrefix = 'use_prefix' in self ? self.use_prefix : true;
+
+  function destroyDb() {
+    // call destroy method of the particular adaptor
+    self._destroy(function (err, resp) {
+      if (err) {
+        return callback(err);
+      }
+      self.emit('destroyed');
+      callback(null, resp || { 'ok': true });
+    });
+  }
+  self.get('_local/_pouch_dependentDbs', function (err, localDoc) {
+    if (err) {
+      if (err.status !== 404) {
+        return callback(err);
+      } else { // no dependencies
+        return destroyDb();
+      }
+    }
+    var dependentDbs = localDoc.dependentDbs;
+    var PouchDB = self.constructor;
+    var deletedMap = Object.keys(dependentDbs).map(function (name) {
+      var trueName = usePrefix ?
+        name.replace(new RegExp('^' + PouchDB.prefix), '') : name;
+      return new PouchDB(trueName, self.__opts).destroy();
+    });
+    Promise.all(deletedMap).then(destroyDb, function (error) {
+      callback(error);
+    });
+  });
+});
+
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/adapter.js","/../../node_modules/pouchdb/lib")
-},{"./changes":30,"./deps/errors":36,"./deps/upsert":42,"./merge":47,"./utils":52,"buffer":10,"events":13,"oMfpAn":14}],18:[function(require,module,exports){
+},{"./changes":29,"./deps/errors":35,"./deps/upsert":43,"./merge":48,"./utils":53,"buffer":10,"events":13,"oMfpAn":14}],18:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 "use strict";
 
@@ -13075,7 +13096,7 @@ function HttpPouch(opts, callback) {
         res.ok = true;
         callback(null, res);
       });
-    })["catch"](callback);
+    }).catch(callback);
 
   }));
 
@@ -13132,7 +13153,7 @@ function HttpPouch(opts, callback) {
         });
         callback(null, results);
       });
-    })["catch"](callback);
+    }).catch(callback);
   };
 
   // Get a listing of the documents in the database given
@@ -13543,7 +13564,7 @@ function HttpPouch(opts, callback) {
     callback();
   };
 
-  api.destroy = utils.adapterFun('destroy', function (callback) {
+  api._destroy = function (callback) {
     ajax({
       url: genDBUrl(host, ''),
       method: 'DELETE',
@@ -13554,28 +13575,12 @@ function HttpPouch(opts, callback) {
         callback(err);
       } else {
         api.emit('destroyed');
+        api.constructor.emit('destroyed', opts.name);
         callback(null, resp);
       }
     });
-  });
+  };
 }
-
-// Delete the HttpPouch specified by the given name.
-HttpPouch.destroy = utils.toPromise(function (name, opts, callback) {
-  var host = getHost(name, opts);
-  opts = opts || {};
-  if (typeof opts === 'function') {
-    callback = opts;
-    opts = {};
-  }
-  opts = utils.clone(opts);
-  opts.headers = host.headers;
-  opts.method = 'DELETE';
-  opts.url = genDBUrl(host, '');
-  var ajaxOpts = opts.ajax || {};
-  opts = utils.extend({}, opts, ajaxOpts);
-  utils.ajax(opts, callback);
-});
 
 // HttpPouch is a valid adapter.
 HttpPouch.valid = function () {
@@ -13585,7 +13590,7 @@ HttpPouch.valid = function () {
 module.exports = HttpPouch;
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/adapters/http/http.js","/../../node_modules/pouchdb/lib/adapters/http")
-},{"../../deps/buffer":35,"../../deps/errors":36,"../../utils":52,"buffer":10,"debug":55,"oMfpAn":14}],19:[function(require,module,exports){
+},{"../../deps/buffer":34,"../../deps/errors":35,"../../utils":53,"buffer":10,"debug":56,"oMfpAn":14}],19:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -13720,7 +13725,7 @@ function idbAllDocs(opts, api, idb, callback) {
           return;
         }
       }
-      cursor["continue"]();
+      cursor.continue();
     }
 
     function onGetCursor(e) {
@@ -13772,7 +13777,7 @@ function idbAllDocs(opts, api, idb, callback) {
 
 module.exports = idbAllDocs;
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/adapters/idb/idb-all-docs.js","/../../node_modules/pouchdb/lib/adapters/idb")
-},{"../../deps/errors":36,"../../merge":47,"./idb-constants":22,"./idb-utils":23,"buffer":10,"oMfpAn":14}],20:[function(require,module,exports){
+},{"../../deps/errors":35,"../../merge":48,"./idb-constants":22,"./idb-utils":23,"buffer":10,"oMfpAn":14}],20:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -13831,14 +13836,14 @@ function checkBlobSupport(txn, idb) {
         });
       };
     };
-  })["catch"](function () {
+  }).catch(function () {
     return false; // error, so assume unsupported
   });
 }
 
 module.exports = checkBlobSupport;
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/adapters/idb/idb-blob-support.js","/../../node_modules/pouchdb/lib/adapters/idb")
-},{"../../utils":52,"./idb-constants":22,"buffer":10,"oMfpAn":14}],21:[function(require,module,exports){
+},{"../../utils":53,"./idb-constants":22,"buffer":10,"oMfpAn":14}],21:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -14203,7 +14208,7 @@ function idbBulkDocs(req, opts, api, idb, Changes, callback) {
 
 module.exports = idbBulkDocs;
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/adapters/idb/idb-bulk-docs.js","/../../node_modules/pouchdb/lib/adapters/idb")
-},{"../../deps/errors":36,"../../utils":52,"./idb-constants":22,"./idb-utils":23,"buffer":10,"oMfpAn":14}],22:[function(require,module,exports){
+},{"../../deps/errors":35,"../../utils":53,"./idb-constants":22,"./idb-utils":23,"buffer":10,"oMfpAn":14}],22:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -14432,7 +14437,7 @@ exports.compactRevs = function (revs, docId, txn) {
         var count = e.target.result;
         if (!count) {
           // orphaned
-          attStore["delete"](digest);
+          attStore.delete(digest);
         }
       };
     });
@@ -14446,7 +14451,7 @@ exports.compactRevs = function (revs, docId, txn) {
       if (typeof seq !== 'number') {
         return checkDone();
       }
-      seqStore["delete"](seq);
+      seqStore.delete(seq);
 
       var cursor = attAndSeqStore.index('seq')
         .openCursor(IDBKeyRange.only(seq));
@@ -14456,8 +14461,8 @@ exports.compactRevs = function (revs, docId, txn) {
         if (cursor) {
           var digest = cursor.value.digestSeq.split('::')[0];
           possiblyOrphanedDigests.push(digest);
-          attAndSeqStore["delete"](cursor.primaryKey);
-          cursor["continue"]();
+          attAndSeqStore.delete(cursor.primaryKey);
+          cursor.continue();
         } else { // done
           checkDone();
         }
@@ -14478,7 +14483,7 @@ exports.openTransactionSafely = function (idb, stores, mode) {
   }
 };
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/adapters/idb/idb-utils.js","/../../node_modules/pouchdb/lib/adapters/idb")
-},{"../../deps/errors":36,"../../utils":52,"./idb-constants":22,"buffer":10,"oMfpAn":14}],24:[function(require,module,exports){
+},{"../../deps/errors":35,"../../utils":53,"./idb-constants":22,"buffer":10,"oMfpAn":14}],24:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -14570,7 +14575,7 @@ function init(api, opts, callback) {
         var deleted = utils.isDeleted(metadata);
         metadata.deletedOrLocal = deleted ? "1" : "0";
         docStore.put(metadata);
-        cursor["continue"]();
+        cursor.continue();
       } else {
         callback();
       }
@@ -14610,19 +14615,19 @@ function init(api, opts, callback) {
             seqCursor = e.target.result;
             if (!seqCursor) {
               // done
-              docStore["delete"](cursor.primaryKey);
-              cursor["continue"]();
+              docStore.delete(cursor.primaryKey);
+              cursor.continue();
             } else {
               var data = seqCursor.value;
               if (data._doc_id_rev === docIdRev) {
                 localStore.put(data);
               }
-              seqStore["delete"](seqCursor.primaryKey);
-              seqCursor["continue"]();
+              seqStore.delete(seqCursor.primaryKey);
+              seqCursor.continue();
             }
           };
         } else {
-          cursor["continue"]();
+          cursor.continue();
         }
       } else if (cb) {
         cb();
@@ -14675,7 +14680,7 @@ function init(api, opts, callback) {
             digestSeq: digest + '::' + seq
           });
         }
-        cursor["continue"]();
+        cursor.continue();
       };
     };
   }
@@ -14730,7 +14735,7 @@ function init(api, opts, callback) {
           if (seq > metadataSeq) {
             metadataSeq = seq;
           }
-          cursor["continue"]();
+          cursor.continue();
         };
       }
 
@@ -14740,7 +14745,7 @@ function init(api, opts, callback) {
 
         var req = docStore.put(metadataToStore);
         req.onsuccess = function () {
-          cursor["continue"]();
+          cursor.continue();
         };
       }
 
@@ -14929,7 +14934,7 @@ function init(api, opts, callback) {
       var seq = cursor.key;
 
       if (docIds && !docIds.has(doc._id)) {
-        return cursor["continue"]();
+        return cursor.continue();
       }
 
       var metadata;
@@ -14937,7 +14942,7 @@ function init(api, opts, callback) {
       function onGetMetadata() {
         if (metadata.seq !== seq) {
           // some other seq is later
-          return cursor["continue"]();
+          return cursor.continue();
         }
 
         lastSeq = seq;
@@ -14980,7 +14985,7 @@ function init(api, opts, callback) {
           }
         }
         if (numResults !== limit) {
-          cursor["continue"]();
+          cursor.continue();
         }
       }
 
@@ -15233,10 +15238,34 @@ function init(api, opts, callback) {
       if (!oldDoc || oldDoc._rev !== doc._rev) {
         callback(errors.error(errors.MISSING_DOC));
       } else {
-        oStore["delete"](id);
+        oStore.delete(id);
         ret = {ok: true, id: id, rev: '0-0'};
       }
     };
+  };
+
+  api._destroy = function (callback) {
+    IdbPouch.Changes.removeAllListeners(dbName);
+
+    //Close open request for "dbName" database to fix ie delay.
+    if (IdbPouch.openReqList[dbName] && IdbPouch.openReqList[dbName].result) {
+      IdbPouch.openReqList[dbName].result.close();
+      delete cachedDBs[dbName];
+    }
+    var req = indexedDB.deleteDatabase(dbName);
+
+    req.onsuccess = function () {
+      //Remove open request from the list.
+      if (IdbPouch.openReqList[dbName]) {
+        IdbPouch.openReqList[dbName] = null;
+      }
+      if (utils.hasLocalStorage() && (dbName in localStorage)) {
+        delete localStorage[dbName];
+      }
+      callback(null, { 'ok': true });
+    };
+
+    req.onerror = idbError(callback);
   };
 
   var cached = cachedDBs[dbName];
@@ -15395,7 +15424,8 @@ IdbPouch.valid = function () {
   // to our knees.
   var isSafari = typeof openDatabase !== 'undefined' &&
     /(Safari|iPhone|iPad|iPod)/.test(navigator.userAgent) &&
-    !/Chrome/.test(navigator.userAgent);
+    !/Chrome/.test(navigator.userAgent) &&
+    !/BlackBerry/.test(navigator.platform);
 
   // some outdated implementations of IDB that appear on Samsung
   // and HTC Android devices <4.4 are missing IDBKeyRange
@@ -15403,53 +15433,12 @@ IdbPouch.valid = function () {
     typeof IDBKeyRange !== 'undefined';
 };
 
-function destroy(name, opts, callback) {
-  if (!('openReqList' in IdbPouch)) {
-    IdbPouch.openReqList = {};
-  }
-  IdbPouch.Changes.removeAllListeners(name);
-
-  //Close open request for "name" database to fix ie delay.
-  if (IdbPouch.openReqList[name] && IdbPouch.openReqList[name].result) {
-    IdbPouch.openReqList[name].result.close();
-    delete cachedDBs[name];
-  }
-  var req = indexedDB.deleteDatabase(name);
-
-  req.onsuccess = function () {
-    //Remove open request from the list.
-    if (IdbPouch.openReqList[name]) {
-      IdbPouch.openReqList[name] = null;
-    }
-    if (utils.hasLocalStorage() && (name in localStorage)) {
-      delete localStorage[name];
-    }
-    callback(null, { 'ok': true });
-  };
-
-  req.onerror = idbError(callback);
-}
-
-IdbPouch.destroy = utils.toPromise(function (name, opts, callback) {
-  taskQueue.queue.push({
-    action: function (thisCallback) {
-      destroy(name, opts, thisCallback);
-    },
-    callback: callback
-  });
-  applyNext();
-});
-
 IdbPouch.Changes = new utils.Changes();
 
 module.exports = IdbPouch;
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/adapters/idb/idb.js","/../../node_modules/pouchdb/lib/adapters/idb")
-},{"../../deps/errors":36,"../../merge":47,"../../utils":52,"./idb-all-docs":19,"./idb-blob-support":20,"./idb-bulk-docs":21,"./idb-constants":22,"./idb-utils":23,"buffer":10,"oMfpAn":14}],25:[function(require,module,exports){
-(function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
-module.exports = ['idb', 'websql'];
-}).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/adapters/preferredAdapters-browser.js","/../../node_modules/pouchdb/lib/adapters")
-},{"buffer":10,"oMfpAn":14}],26:[function(require,module,exports){
+},{"../../deps/errors":35,"../../merge":48,"../../utils":53,"./idb-all-docs":19,"./idb-blob-support":20,"./idb-bulk-docs":21,"./idb-constants":22,"./idb-utils":23,"buffer":10,"oMfpAn":14}],25:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -15776,7 +15765,7 @@ function websqlBulkDocs(req, opts, api, db, Changes, callback) {
 module.exports = websqlBulkDocs;
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/adapters/websql/websql-bulk-docs.js","/../../node_modules/pouchdb/lib/adapters/websql")
-},{"../../deps/errors":36,"../../utils":52,"./websql-constants":27,"./websql-utils":28,"buffer":10,"oMfpAn":14}],27:[function(require,module,exports){
+},{"../../deps/errors":35,"../../utils":53,"./websql-constants":26,"./websql-utils":27,"buffer":10,"oMfpAn":14}],26:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -15802,7 +15791,7 @@ exports.ATTACH_AND_SEQ_STORE = quote('attach-seq-store');
 
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/adapters/websql/websql-constants.js","/../../node_modules/pouchdb/lib/adapters/websql")
-},{"buffer":10,"oMfpAn":14}],28:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],27:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -16033,7 +16022,7 @@ module.exports = {
   valid: valid
 };
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/adapters/websql/websql-utils.js","/../../node_modules/pouchdb/lib/adapters/websql")
-},{"../../deps/errors":36,"../../utils":52,"./websql-constants":27,"buffer":10,"oMfpAn":14}],29:[function(require,module,exports){
+},{"../../deps/errors":35,"../../utils":53,"./websql-constants":26,"buffer":10,"oMfpAn":14}],28:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -17018,42 +17007,33 @@ function WebSqlPouch(opts, callback) {
       }
     });
   };
+
+  api._destroy = function (callback) {
+    WebSqlPouch.Changes.removeAllListeners(api._name);
+    db.transaction(function (tx) {
+      var stores = [DOC_STORE, BY_SEQ_STORE, ATTACH_STORE, META_STORE,
+        LOCAL_STORE, ATTACH_AND_SEQ_STORE];
+      stores.forEach(function (store) {
+        tx.executeSql('DROP TABLE IF EXISTS ' + store, []);
+      });
+    }, unknownError(callback), function () {
+      if (utils.hasLocalStorage()) {
+        delete window.localStorage['_pouch__websqldb_' + api._name];
+        delete window.localStorage[api._name];
+      }
+      callback(null, {'ok': true});
+    });
+  };
 }
 
 WebSqlPouch.valid = websqlUtils.valid;
-
-WebSqlPouch.destroy = utils.toPromise(function (name, opts, callback) {
-  WebSqlPouch.Changes.removeAllListeners(name);
-  var size = getSize(opts);
-  var db = openDB({
-    name: name,
-    version: POUCH_VERSION,
-    description: name,
-    size: size,
-    location: opts.location,
-    createFromLocation: opts.createFromLocation
-  });
-  db.transaction(function (tx) {
-    var stores = [DOC_STORE, BY_SEQ_STORE, ATTACH_STORE, META_STORE,
-      LOCAL_STORE, ATTACH_AND_SEQ_STORE];
-    stores.forEach(function (store) {
-      tx.executeSql('DROP TABLE IF EXISTS ' + store, []);
-    });
-  }, unknownError(callback), function () {
-    if (utils.hasLocalStorage()) {
-      delete window.localStorage['_pouch__websqldb_' + name];
-      delete window.localStorage[name];
-    }
-    callback(null, {'ok': true});
-  });
-});
 
 WebSqlPouch.Changes = new utils.Changes();
 
 module.exports = WebSqlPouch;
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/adapters/websql/websql.js","/../../node_modules/pouchdb/lib/adapters/websql")
-},{"../../deps/errors":36,"../../deps/parse-hex":39,"../../merge":47,"../../utils":52,"./websql-bulk-docs":26,"./websql-constants":27,"./websql-utils":28,"buffer":10,"oMfpAn":14}],30:[function(require,module,exports){
+},{"../../deps/errors":35,"../../deps/parse-hex":39,"../../merge":48,"../../utils":53,"./websql-bulk-docs":25,"./websql-constants":26,"./websql-utils":27,"buffer":10,"oMfpAn":14}],29:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 var utils = require('./utils');
@@ -17311,19 +17291,20 @@ Changes.prototype.filterChanges = function (opts) {
   }
 };
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/changes.js","/../../node_modules/pouchdb/lib")
-},{"./deps/errors":36,"./evalFilter":44,"./evalView":45,"./merge":47,"./utils":52,"buffer":10,"events":13,"oMfpAn":14}],31:[function(require,module,exports){
+},{"./deps/errors":35,"./evalFilter":45,"./evalView":46,"./merge":48,"./utils":53,"buffer":10,"events":13,"oMfpAn":14}],30:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
-var utils = require('./utils');
+var Promise = require('./deps/promise');
+var explain404 = require('./deps/explain404');
 var pouchCollate = require('pouchdb-collate');
 var collate = pouchCollate.collate;
 
 function updateCheckpoint(db, id, checkpoint, returnValue) {
-  return db.get(id)["catch"](function (err) {
+  return db.get(id).catch(function (err) {
     if (err.status === 404) {
       if (db.type() === 'http') {
-        utils.explain404(
+        explain404(
           'PouchDB is just checking if a remote checkpoint exists.');
       }
       return {_id: id};
@@ -17334,7 +17315,7 @@ function updateCheckpoint(db, id, checkpoint, returnValue) {
       return;
     }
     doc.last_seq = checkpoint;
-    return db.put(doc)["catch"](function (err) {
+    return db.put(doc).catch(function (err) {
       if (err.status === 409) {
         // retry; someone is trying to write a checkpoint simultaneously
         return updateCheckpoint(db, id, checkpoint, returnValue);
@@ -17365,10 +17346,10 @@ Checkpointer.prototype.updateTarget = function (checkpoint) {
 Checkpointer.prototype.updateSource = function (checkpoint) {
   var self = this;
   if (this.readOnlySource) {
-    return utils.Promise.resolve(true);
+    return Promise.resolve(true);
   }
-  return updateCheckpoint(this.src, this.id, checkpoint, this.returnValue)[
-    "catch"](function (err) {
+  return updateCheckpoint(this.src, this.id, checkpoint, this.returnValue)
+    .catch(function (err) {
       var isForbidden = typeof err.status === 'number' &&
         Math.floor(err.status / 100) === 4;
       if (isForbidden) {
@@ -17404,7 +17385,7 @@ Checkpointer.prototype.getCheckpoint = function () {
       }
       throw err;
     });
-  })["catch"](function (err) {
+  }).catch(function (err) {
     if (err.status !== 404) {
       throw err;
     }
@@ -17415,7 +17396,7 @@ Checkpointer.prototype.getCheckpoint = function () {
 module.exports = Checkpointer;
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/checkpointer.js","/../../node_modules/pouchdb/lib")
-},{"./utils":52,"buffer":10,"oMfpAn":14,"pouchdb-collate":77}],32:[function(require,module,exports){
+},{"./deps/explain404":36,"./deps/promise":41,"buffer":10,"oMfpAn":14,"pouchdb-collate":78}],31:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /*globals cordova */
 "use strict";
@@ -17450,7 +17431,10 @@ function PouchDB(name, opts, callback) {
   if (typeof callback === 'undefined') {
     callback = defaultCallback;
   }
-  opts = opts || {};
+  name = name || opts.name;
+  opts = opts ? utils.clone(opts) : {};
+  // if name was specified via opts, ignore for the sake of dependentDbs
+  delete opts.name;
   this.__opts = opts;
   var oldCB = callback;
   self.auto_compaction = opts.auto_compaction;
@@ -17531,18 +17515,6 @@ function PouchDB(name, opts, callback) {
 
     self.replicate.sync = self.sync;
 
-    self.destroy = utils.adapterFun('destroy', function (callback) {
-      var self = this;
-      var opts = this.__opts || {};
-      self.info(function (err, info) {
-        if (err) {
-          return callback(err);
-        }
-        opts.internal = true;
-        self.constructor.destroy(info.db_name, opts, callback);
-      });
-    });
-
     PouchDB.adapters[opts.adapter].call(self, opts, function (err) {
       if (err) {
         if (callback) {
@@ -17551,13 +17523,13 @@ function PouchDB(name, opts, callback) {
         }
         return;
       }
-      function destructionListener(event) {
-        if (event === 'destroyed') {
-          self.emit('destroyed');
-          PouchDB.removeListener(originalName, destructionListener);
-        }
+      function destructionListener() {
+        PouchDB.emit('destroyed', opts.originalName);
+        //so we don't have to sift through all dbnames
+        PouchDB.emit(opts.originalName, 'destroyed');
+        self.removeListener('destroyed', destructionListener);
       }
-      PouchDB.on(originalName, destructionListener);
+      self.on('destroyed', destructionListener);
       self.emit('created', self);
       PouchDB.emit('created', opts.originalName);
       self.taskqueue.ready(self);
@@ -17580,7 +17552,7 @@ function PouchDB(name, opts, callback) {
     oldCB(null, resp);
   }, oldCB);
   self.then = promise.then.bind(promise);
-  self["catch"] = promise["catch"].bind(promise);
+  self.catch = promise.catch.bind(promise);
 }
 
 PouchDB.debug = require('debug');
@@ -17588,7 +17560,7 @@ PouchDB.debug = require('debug');
 module.exports = PouchDB;
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/constructor.js","/../../node_modules/pouchdb/lib")
-},{"./adapter":17,"./taskqueue":51,"./utils":52,"buffer":10,"debug":55,"oMfpAn":14}],33:[function(require,module,exports){
+},{"./adapter":17,"./taskqueue":52,"./utils":53,"buffer":10,"debug":56,"oMfpAn":14}],32:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 "use strict";
 
@@ -17729,7 +17701,7 @@ function ajax(options, adapterCallback) {
 module.exports = ajax;
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/deps/ajax.js","/../../node_modules/pouchdb/lib/deps")
-},{"../utils":52,"./buffer":35,"./errors":36,"buffer":10,"oMfpAn":14,"request":41}],34:[function(require,module,exports){
+},{"../utils":53,"./buffer":34,"./errors":35,"buffer":10,"oMfpAn":14,"request":42}],33:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 "use strict";
 
@@ -17761,12 +17733,12 @@ module.exports = createBlob;
 
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/deps/blob.js","/../../node_modules/pouchdb/lib/deps")
-},{"buffer":10,"oMfpAn":14}],35:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],34:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 // hey guess what, we don't need this in the browser
 module.exports = {};
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/deps/buffer-browser.js","/../../node_modules/pouchdb/lib/deps")
-},{"buffer":10,"oMfpAn":14}],36:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],35:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 "use strict";
 
@@ -18030,7 +18002,21 @@ exports.generateErrorFromResponse = function (res) {
 };
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/deps/errors.js","/../../node_modules/pouchdb/lib/deps")
-},{"buffer":10,"inherits":58,"oMfpAn":14}],37:[function(require,module,exports){
+},{"buffer":10,"inherits":59,"oMfpAn":14}],36:[function(require,module,exports){
+(function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
+'use strict';
+
+// designed to give info to browser users, who are disturbed
+// when they see 404s in the console
+function explain404(str) {
+  if (process.browser && 'console' in global && 'info' in console) {
+    console.info('The above 404 is totally normal. ' + str);
+  }
+}
+
+module.exports = explain404;
+}).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/deps/explain404.js","/../../node_modules/pouchdb/lib/deps")
+},{"buffer":10,"oMfpAn":14}],37:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -18113,7 +18099,7 @@ module.exports = function (data, callback) {
 };
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/deps/md5.js","/../../node_modules/pouchdb/lib/deps")
-},{"buffer":10,"crypto":9,"oMfpAn":14,"spark-md5":88}],38:[function(require,module,exports){
+},{"buffer":10,"crypto":9,"oMfpAn":14,"spark-md5":89}],38:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -18283,7 +18269,7 @@ exports.parseDoc = function (doc, newEdits) {
   return result;
 };
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/deps/parse-doc.js","/../../node_modules/pouchdb/lib/deps")
-},{"./errors":36,"./uuid":43,"buffer":10,"oMfpAn":14}],39:[function(require,module,exports){
+},{"./errors":35,"./uuid":44,"buffer":10,"oMfpAn":14}],39:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -18405,10 +18391,124 @@ module.exports = parseUri;
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
+if (typeof Promise === 'function') {
+  module.exports = Promise;
+} else {
+  module.exports = require('bluebird');
+}
+}).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/deps/promise.js","/../../node_modules/pouchdb/lib/deps")
+},{"bluebird":63,"buffer":10,"oMfpAn":14}],42:[function(require,module,exports){
+(function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
+/* global fetch */
+/* global Headers */
+'use strict';
+
 var createBlob = require('./blob.js');
 var utils = require('../utils');
 
-module.exports = function(options, callback) {
+function wrappedFetch() {
+  var wrappedPromise = {};
+
+  var promise = new utils.Promise(function(resolve, reject) {
+    wrappedPromise.resolve = resolve;
+    wrappedPromise.reject = reject;
+  });
+
+  var args = new Array(arguments.length);
+
+  for (var i = 0; i < args.length; i++) {
+    args[i] = arguments[i];
+  }
+
+  wrappedPromise.then = promise.then.bind(promise);
+  wrappedPromise.catch = promise.catch.bind(promise);
+  wrappedPromise.promise = promise;
+
+  fetch.apply(null, args).then(function(response) {
+    wrappedPromise.resolve(response);
+  }, function(error) {
+    wrappedPromise.reject(error);
+  }).catch(function(error) {
+    wrappedPromise.catch(error);
+  });
+
+  return wrappedPromise;
+}
+
+function fetchRequest(options, callback) {
+  var wrappedPromise, timer, fetchResponse;
+
+  var headers = new Headers();
+
+  var fetchOptions = {
+    method: options.method,
+    credentials: 'include',
+    headers: headers
+  };
+
+  if (options.json) {
+    headers.set('Accept', 'application/json');
+    headers.set('Content-Type', options.headers['Content-Type'] ||
+      'application/json');
+  }
+
+  if (options.body && (options.body instanceof Blob)) {
+    utils.readAsBinaryString(options.body, function(binary) {
+      fetchOptions.body = utils.fixBinary(binary);
+    });
+  } else if (options.body &&
+             options.processData &&
+             typeof options.body !== 'string') {
+    fetchOptions.body = JSON.stringify(options.body);
+  } else if ('body' in options) {
+    fetchOptions.body = options.body;
+  } else {
+    fetchOptions.body = null;
+  }
+
+  Object.keys(options.headers).forEach(function(key) {
+    if (options.headers.hasOwnProperty(key)) {
+      headers.set(key, options.headers[key]);
+    }
+  });
+
+  wrappedPromise = wrappedFetch(options.url, fetchOptions);
+
+  if (options.timeout > 0) {
+    timer = setTimeout(function() {
+      wrappedPromise.reject(new Error('Load timeout for resource: ' +
+        options.url));
+    }, options.timeout);
+  }
+
+  wrappedPromise.promise.then(function(response) {
+    var result;
+
+    fetchResponse = response;
+
+    if (options.timeout > 0) {
+      clearTimeout(timer);
+    }
+
+    if (response.status >= 200 && response.status < 300) {
+      return options.binary ? response.blob() : response.text();
+    }
+
+    return result.json();
+  }).then(function(result) {
+    if (fetchResponse.status >= 200 && fetchResponse.status < 300) {
+      callback(null, fetchResponse, result);
+    } else {
+      callback(result, fetchResponse);
+    }
+  }).catch(function(error) {
+    callback(error, fetchResponse);
+  });
+
+  return {abort: wrappedPromise.reject};
+}
+
+function xhRequest(options, callback) {
 
   var xhr, timer, hasUpload;
 
@@ -18432,7 +18532,9 @@ module.exports = function(options, callback) {
   xhr.open(options.method, options.url);
   xhr.withCredentials = true;
 
-  if (options.json) {
+  if (options.method === 'GET') {
+    delete options.headers['Content-Type'];
+  } else if (options.json) {
     options.headers.Accept = 'application/json';
     options.headers['Content-Type'] = options.headers['Content-Type'] ||
       'application/json';
@@ -18465,7 +18567,8 @@ module.exports = function(options, callback) {
     };
     if (typeof hasUpload === 'undefined') {
       // IE throws an error if you try to access it directly
-      hasUpload = Object.keys(xhr).indexOf('upload') !== -1;
+      hasUpload = Object.keys(xhr).indexOf('upload') !== -1 &&
+                  typeof xhr.upload !== 'undefined';
     }
     if (hasUpload) { // does not exist in ie9
       xhr.upload.onprogress = xhr.onprogress;
@@ -18509,10 +18612,18 @@ module.exports = function(options, callback) {
   }
 
   return {abort: abortReq};
+}
+
+module.exports = function(options, callback) {
+  if (typeof XMLHttpRequest === 'undefined' && !options.xhr) {
+    return fetchRequest(options, callback);
+  } else {
+    return xhRequest(options, callback);
+  }
 };
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/deps/request-browser.js","/../../node_modules/pouchdb/lib/deps")
-},{"../utils":52,"./blob.js":34,"buffer":10,"oMfpAn":14}],42:[function(require,module,exports){
+},{"../utils":53,"./blob.js":33,"buffer":10,"oMfpAn":14}],43:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -18523,7 +18634,7 @@ module.exports = function (db, doc, diffFun, cb) {
 };
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/deps/upsert.js","/../../node_modules/pouchdb/lib/deps")
-},{"buffer":10,"oMfpAn":14,"pouchdb-upsert":87}],43:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14,"pouchdb-upsert":88}],44:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 "use strict";
 
@@ -18610,7 +18721,7 @@ module.exports = uuid;
 
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/deps/uuid.js","/../../node_modules/pouchdb/lib/deps")
-},{"buffer":10,"oMfpAn":14}],44:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],45:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -18624,7 +18735,7 @@ function evalFilter(input) {
   ].join(''));
 }
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/evalFilter.js","/../../node_modules/pouchdb/lib")
-},{"buffer":10,"oMfpAn":14}],45:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],46:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -18648,7 +18759,7 @@ function evalView(input) {
   ].join('\n'));
 }
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/evalView.js","/../../node_modules/pouchdb/lib")
-},{"buffer":10,"oMfpAn":14}],46:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],47:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 "use strict";
 
@@ -18666,18 +18777,17 @@ var httpAdapter = require('./adapters/http/http');
 PouchDB.adapter('http', httpAdapter);
 PouchDB.adapter('https', httpAdapter);
 
-PouchDB.adapter('idb', require('./adapters/idb/idb'));
-PouchDB.adapter('websql', require('./adapters/websql/websql'));
+PouchDB.adapter('idb', require('./adapters/idb/idb'), true);
+PouchDB.adapter('websql', require('./adapters/websql/websql'), true);
 PouchDB.plugin(require('pouchdb-mapreduce'));
 
 if (!process.browser) {
   var ldbAdapter = require('./adapters/leveldb/leveldb');
-  PouchDB.adapter('ldb', ldbAdapter);
-  PouchDB.adapter('leveldb', ldbAdapter);
+  PouchDB.adapter('leveldb', ldbAdapter, true);
 }
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/index.js","/../../node_modules/pouchdb/lib")
-},{"./adapters/http/http":18,"./adapters/idb/idb":24,"./adapters/leveldb/leveldb":9,"./adapters/websql/websql":29,"./deps/ajax":33,"./deps/errors":36,"./replicate":48,"./setup":49,"./sync":50,"./utils":52,"./version":53,"buffer":10,"oMfpAn":14,"pouchdb-mapreduce":83}],47:[function(require,module,exports){
+},{"./adapters/http/http":18,"./adapters/idb/idb":24,"./adapters/leveldb/leveldb":9,"./adapters/websql/websql":28,"./deps/ajax":32,"./deps/errors":35,"./replicate":49,"./setup":50,"./sync":51,"./utils":53,"./version":54,"buffer":10,"oMfpAn":14,"pouchdb-mapreduce":84}],48:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 var extend = require('pouchdb-extend');
@@ -18981,7 +19091,7 @@ PouchMerge.rootToLeaf = function (tree) {
 module.exports = PouchMerge;
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/merge.js","/../../node_modules/pouchdb/lib")
-},{"buffer":10,"oMfpAn":14,"pouchdb-extend":80}],48:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14,"pouchdb-extend":81}],49:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -19066,12 +19176,12 @@ function Replication() {
   self.then = function (resolve, reject) {
     return promise.then(resolve, reject);
   };
-  self["catch"] = function (reject) {
-    return promise["catch"](reject);
+  self.catch = function (reject) {
+    return promise.catch(reject);
   };
   // As we allow error handling via "error" event as well,
   // put a stub in here so that rejecting never throws UnhandledError.
-  self["catch"](function () {});
+  self.catch(function () {});
 }
 
 Replication.prototype.cancel = function () {
@@ -19169,7 +19279,6 @@ function replicate(repId, src, target, opts, returnValue, result) {
           errorsById[res.id] = res;
         }
       });
-      result.errors = errors;
       allErrors = allErrors.concat(errors);
       result.docs_written += currentBatch.docs.length - errors.length;
       var non403s = errors.filter(function (error) {
@@ -19288,7 +19397,7 @@ function replicate(repId, src, target, opts, returnValue, result) {
       returnValue.emit('change', outResult);
       currentBatch = undefined;
       getChanges();
-    })["catch"](function (err) {
+    }).catch(function (err) {
       writingCheckpoint = false;
       abortReplication('writeCheckpoint completed with error', err);
       throw err;
@@ -19330,8 +19439,8 @@ function replicate(repId, src, target, opts, returnValue, result) {
       .then(getDocs)
       .then(writeDocs)
       .then(finishBatch)
-      .then(startNextBatch)[
-      "catch"](function (err) {
+      .then(startNextBatch)
+      .catch(function (err) {
         abortReplication('batch processing terminated with error', err);
       });
   }
@@ -19496,8 +19605,8 @@ function replicate(repId, src, target, opts, returnValue, result) {
     var changes = src.changes(changesOpts)
     .on('change', onChange);
     changes.then(removeListener, removeListener);
-    changes.then(onChangesComplete)[
-    "catch"](onChangesError);
+    changes.then(onChangesComplete)
+    .catch(onChangesError);
   }
 
 
@@ -19527,7 +19636,7 @@ function replicate(repId, src, target, opts, returnValue, result) {
         changesOpts.view = opts.view;
       }
       getChanges();
-    })["catch"](function (err) {
+    }).catch(function (err) {
       abortReplication('getCheckpoint rejected with ', err);
     });
   }
@@ -19562,7 +19671,7 @@ function replicate(repId, src, target, opts, returnValue, result) {
       }
       last_seq = opts.since;
       startChanges();
-    })["catch"](function (err) {
+    }).catch(function (err) {
       writingCheckpoint = false;
       abortReplication('writeCheckpoint completed with error', err);
       throw err;
@@ -19607,7 +19716,7 @@ function replicateWrapper(src, target, opts, callback) {
         replicate(repId, src, target, opts, replicateRet);
       });
     });
-  })["catch"](function (err) {
+  }).catch(function (err) {
     replicateRet.emit('error', err);
     opts.complete(err);
   });
@@ -19615,16 +19724,15 @@ function replicateWrapper(src, target, opts, callback) {
 }
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/replicate.js","/../../node_modules/pouchdb/lib")
-},{"./checkpointer":31,"./utils":52,"buffer":10,"events":13,"oMfpAn":14}],49:[function(require,module,exports){
+},{"./checkpointer":30,"./utils":53,"buffer":10,"events":13,"oMfpAn":14}],50:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 "use strict";
 
 var PouchDB = require("./constructor");
 var utils = require('./utils');
-var Promise = utils.Promise;
 var EventEmitter = require('events').EventEmitter;
 PouchDB.adapters = {};
-PouchDB.preferredAdapters = require('./adapters/preferredAdapters.js');
+PouchDB.preferredAdapters = [];
 
 PouchDB.prefix = '_pouch_';
 
@@ -19663,13 +19771,19 @@ PouchDB.parseAdapter = function (name, opts) {
     utils.hasLocalStorage() &&
     localStorage['_pouch__websqldb_' + PouchDB.prefix + name];
 
-  if (typeof opts !== 'undefined' && opts.db) {
+
+  if (opts.adapter) {
+    adapterName = opts.adapter;
+  } else if (typeof opts !== 'undefined' && opts.db) {
     adapterName = 'leveldb';
-  } else {
+  } else { // automatically determine adapter
     for (var i = 0; i < PouchDB.preferredAdapters.length; ++i) {
       adapterName = PouchDB.preferredAdapters[i];
       if (adapterName in PouchDB.adapters) {
         if (skipIdb && adapterName === 'idb') {
+          // log it, because this can be confusing during development
+          console.log('PouchDB is downgrading "' + name + '" to WebSQL to' +
+            ' avoid data loss, because it was already opened with WebSQL.');
           continue; // keep using websql to avoid user data loss
         }
         break;
@@ -19678,19 +19792,20 @@ PouchDB.parseAdapter = function (name, opts) {
   }
 
   adapter = PouchDB.adapters[adapterName];
-  if (adapterName && adapter) {
-    var use_prefix = 'use_prefix' in adapter ? adapter.use_prefix : true;
 
-    return {
-      name: use_prefix ? PouchDB.prefix + name : name,
-      adapter: adapterName
-    };
-  }
+  // if adapter is invalid, then an error will be thrown later
+  var usePrefix = (adapter && 'use_prefix' in adapter) ?
+      adapter.use_prefix : true;
 
-  throw 'No valid adapter found';
+  return {
+    name: usePrefix ? (PouchDB.prefix + name) : name,
+    adapter: adapterName
+  };
 };
 
 PouchDB.destroy = utils.toPromise(function (name, opts, callback) {
+  console.log('PouchDB.destroy() is deprecated and will be removed. ' +
+              'Please use db.destroy() instead.');
 
   if (typeof opts === 'function' || typeof opts === 'undefined') {
     callback = opts;
@@ -19701,63 +19816,20 @@ PouchDB.destroy = utils.toPromise(function (name, opts, callback) {
     name = undefined;
   }
 
-  if (!opts.internal) {
-    console.log('PouchDB.destroy() is deprecated and will be removed. ' +
-                'Please use db.destroy() instead.');
-  }
-
-  var backend = PouchDB.parseAdapter(opts.name || name, opts);
-  var dbName = backend.name;
-  var adapter = PouchDB.adapters[backend.adapter];
-  var usePrefix = 'use_prefix' in adapter ? adapter.use_prefix : true;
-  var baseName = usePrefix ?
-    dbName.replace(new RegExp('^' + PouchDB.prefix), '') : dbName;
-  var fullName = (backend.adapter === 'http' || backend.adapter === 'https' ?
-      '' : (opts.prefix || '')) + dbName;
-  function destroyDb() {
-    // call destroy method of the particular adaptor
-    adapter.destroy(fullName, opts, function (err, resp) {
-      if (err) {
-        callback(err);
-      } else {
-        PouchDB.emit('destroyed', name);
-        //so we don't have to sift through all dbnames
-        PouchDB.emit(name, 'destroyed');
-        callback(null, resp || { 'ok': true });
-      }
-    });
-  }
-
-  var createOpts = utils.extend(true, {}, opts, {adapter : backend.adapter});
-  new PouchDB(baseName, createOpts, function (err, db) {
+  new PouchDB(name, opts, function (err, db) {
     if (err) {
       return callback(err);
     }
-    db.get('_local/_pouch_dependentDbs', function (err, localDoc) {
-      if (err) {
-        if (err.status !== 404) {
-          return callback(err);
-        } else { // no dependencies
-          return destroyDb();
-        }
-      }
-      var dependentDbs = localDoc.dependentDbs;
-      var deletedMap = Object.keys(dependentDbs).map(function (name) {
-        var trueName = usePrefix ?
-          name.replace(new RegExp('^' + PouchDB.prefix), '') : name;
-        var subOpts = utils.extend(true, opts, db.__opts || {});
-        return db.constructor.destroy(trueName, subOpts);
-      });
-      Promise.all(deletedMap).then(destroyDb, function (error) {
-        callback(error);
-      });
-    });
+    db.destroy(callback);
   });
 });
 
-PouchDB.adapter = function (id, obj) {
+PouchDB.adapter = function (id, obj, addToPreferredAdapters) {
   if (obj.valid()) {
     PouchDB.adapters[id] = obj;
+    if (addToPreferredAdapters) {
+      PouchDB.preferredAdapters.push(id);
+    }
   }
 };
 
@@ -19816,7 +19888,7 @@ PouchDB.defaults = function (defaultOpts) {
 module.exports = PouchDB;
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/setup.js","/../../node_modules/pouchdb/lib")
-},{"./adapters/preferredAdapters.js":25,"./constructor":32,"./utils":52,"buffer":10,"events":13,"oMfpAn":14}],50:[function(require,module,exports){
+},{"./constructor":31,"./utils":53,"buffer":10,"events":13,"oMfpAn":14}],51:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -19990,8 +20062,8 @@ function Sync(src, target, opts, callback) {
     return promise.then(success, err);
   };
 
-  this["catch"] = function (err) {
-    return promise["catch"](err);
+  this.catch = function (err) {
+    return promise.catch(err);
   };
 }
 
@@ -20004,7 +20076,7 @@ Sync.prototype.cancel = function () {
 };
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/sync.js","/../../node_modules/pouchdb/lib")
-},{"./replicate":48,"./utils":52,"buffer":10,"events":13,"oMfpAn":14}],51:[function(require,module,exports){
+},{"./replicate":49,"./utils":53,"buffer":10,"events":13,"oMfpAn":14}],52:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -20076,7 +20148,7 @@ TaskQueue.prototype.addTask = function (name, parameters) {
 };
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/taskqueue.js","/../../node_modules/pouchdb/lib")
-},{"buffer":10,"oMfpAn":14}],52:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],53:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /*jshint strict: false */
 /*global chrome */
@@ -20094,12 +20166,8 @@ exports.Map = collections.Map;
 exports.Set = collections.Set;
 var parseDoc = require('./deps/parse-doc');
 
-if (typeof global.Promise === 'function') {
-  exports.Promise = global.Promise;
-} else {
-  exports.Promise = require('bluebird');
-}
-var Promise = exports.Promise;
+var Promise = require('./deps/promise');
+exports.Promise = Promise;
 
 exports.lastIndexOf = function (str, char) {
   for (var i = str.length - 1; i >= 0; i--) {
@@ -20499,7 +20567,7 @@ exports.adapterFun = function (name, callback) {
     var self = this;
     logApiCall(self, name, args);
     if (!this.taskqueue.isReady) {
-      return new exports.Promise(function (fulfill, reject) {
+      return new Promise(function (fulfill, reject) {
         self.taskqueue.addTask(function (failed) {
           if (failed) {
             reject(failed);
@@ -20609,13 +20677,7 @@ exports.cancellableFun = function (fun, self, opts) {
 
 exports.MD5 = exports.toPromise(require('./deps/md5'));
 
-// designed to give info to browser users, who are disturbed
-// when they see 404s in the console
-exports.explain404 = function (str) {
-  if (process.browser && 'console' in global && 'info' in console) {
-    console.info('The above 404 is totally normal. ' + str);
-  }
-};
+exports.explain404 = require('./deps/explain404');
 
 exports.info = function (str) {
   if (typeof console !== 'undefined' && 'info' in console) {
@@ -20903,12 +20965,12 @@ exports.safeJsonStringify = function safeJsonStringify(json) {
 };
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/utils.js","/../../node_modules/pouchdb/lib")
-},{"./deps/ajax":33,"./deps/blob":34,"./deps/buffer":35,"./deps/errors":36,"./deps/md5":37,"./deps/parse-doc":38,"./deps/parse-uri":40,"./deps/uuid":43,"./merge":47,"argsarray":54,"bluebird":62,"buffer":10,"debug":55,"events":13,"inherits":58,"oMfpAn":14,"pouchdb-collections":79,"pouchdb-extend":80,"vuvuzela":89}],53:[function(require,module,exports){
+},{"./deps/ajax":32,"./deps/blob":33,"./deps/buffer":34,"./deps/errors":35,"./deps/explain404":36,"./deps/md5":37,"./deps/parse-doc":38,"./deps/parse-uri":40,"./deps/promise":41,"./deps/uuid":44,"./merge":48,"argsarray":55,"buffer":10,"debug":56,"events":13,"inherits":59,"oMfpAn":14,"pouchdb-collections":80,"pouchdb-extend":81,"vuvuzela":90}],54:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
-module.exports = "3.4.0";
+module.exports = "3.5.0";
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/lib/version-browser.js","/../../node_modules/pouchdb/lib")
-},{"buffer":10,"oMfpAn":14}],54:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],55:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -20930,7 +20992,7 @@ function argsArray(fun) {
   };
 }
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/argsarray/index.js","/../../node_modules/pouchdb/node_modules/argsarray")
-},{"buffer":10,"oMfpAn":14}],55:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],56:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 
 /**
@@ -20945,17 +21007,10 @@ exports.formatArgs = formatArgs;
 exports.save = save;
 exports.load = load;
 exports.useColors = useColors;
-
-/**
- * Use chrome.storage.local if we are in an app
- */
-
-var storage;
-
-if (typeof chrome !== 'undefined' && typeof chrome.storage !== 'undefined')
-  storage = chrome.storage.local;
-else
-  storage = localstorage();
+exports.storage = 'undefined' != typeof chrome
+               && 'undefined' != typeof chrome.storage
+                  ? chrome.storage.local
+                  : localstorage();
 
 /**
  * Colors.
@@ -21063,9 +21118,9 @@ function log() {
 function save(namespaces) {
   try {
     if (null == namespaces) {
-      storage.removeItem('debug');
+      exports.storage.removeItem('debug');
     } else {
-      storage.debug = namespaces;
+      exports.storage.debug = namespaces;
     }
   } catch(e) {}
 }
@@ -21080,7 +21135,7 @@ function save(namespaces) {
 function load() {
   var r;
   try {
-    r = storage.debug;
+    r = exports.storage.debug;
   } catch(e) {}
   return r;
 }
@@ -21109,7 +21164,7 @@ function localstorage(){
 }
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/debug/browser.js","/../../node_modules/pouchdb/node_modules/debug")
-},{"./debug":56,"buffer":10,"oMfpAn":14}],56:[function(require,module,exports){
+},{"./debug":57,"buffer":10,"oMfpAn":14}],57:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 
 /**
@@ -21310,7 +21365,7 @@ function coerce(val) {
 }
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/debug/debug.js","/../../node_modules/pouchdb/node_modules/debug")
-},{"buffer":10,"ms":57,"oMfpAn":14}],57:[function(require,module,exports){
+},{"buffer":10,"ms":58,"oMfpAn":14}],58:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /**
  * Helpers.
@@ -21352,6 +21407,8 @@ module.exports = function(val, options){
  */
 
 function parse(str) {
+  str = '' + str;
+  if (str.length > 10000) return;
   var match = /^((?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|years?|yrs?|y)?$/i.exec(str);
   if (!match) return;
   var n = parseFloat(match[1]);
@@ -21437,7 +21494,7 @@ function plural(ms, n, name) {
 }
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/debug/node_modules/ms/index.js","/../../node_modules/pouchdb/node_modules/debug/node_modules/ms")
-},{"buffer":10,"oMfpAn":14}],58:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],59:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
@@ -21464,7 +21521,7 @@ if (typeof Object.create === 'function') {
 }
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/inherits/inherits_browser.js","/../../node_modules/pouchdb/node_modules/inherits")
-},{"buffer":10,"oMfpAn":14}],59:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],60:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -21472,7 +21529,7 @@ module.exports = INTERNAL;
 
 function INTERNAL() {}
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/lie/lib/INTERNAL.js","/../../node_modules/pouchdb/node_modules/lie/lib")
-},{"buffer":10,"oMfpAn":14}],60:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],61:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 var Promise = require('./promise');
@@ -21518,7 +21575,7 @@ function all(iterable) {
   }
 }
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/lie/lib/all.js","/../../node_modules/pouchdb/node_modules/lie/lib")
-},{"./INTERNAL":59,"./handlers":61,"./promise":63,"./reject":66,"./resolve":67,"buffer":10,"oMfpAn":14}],61:[function(require,module,exports){
+},{"./INTERNAL":60,"./handlers":62,"./promise":64,"./reject":67,"./resolve":68,"buffer":10,"oMfpAn":14}],62:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 var tryCatch = require('./tryCatch');
@@ -21565,8 +21622,9 @@ function getThen(obj) {
     };
   }
 }
+
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/lie/lib/handlers.js","/../../node_modules/pouchdb/node_modules/lie/lib")
-},{"./resolveThenable":68,"./states":69,"./tryCatch":70,"buffer":10,"oMfpAn":14}],62:[function(require,module,exports){
+},{"./resolveThenable":69,"./states":70,"./tryCatch":71,"buffer":10,"oMfpAn":14}],63:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 module.exports = exports = require('./promise');
 
@@ -21574,8 +21632,9 @@ exports.resolve = require('./resolve');
 exports.reject = require('./reject');
 exports.all = require('./all');
 exports.race = require('./race');
+
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/lie/lib/index.js","/../../node_modules/pouchdb/node_modules/lie/lib")
-},{"./all":60,"./promise":63,"./race":65,"./reject":66,"./resolve":67,"buffer":10,"oMfpAn":14}],63:[function(require,module,exports){
+},{"./all":61,"./promise":64,"./race":66,"./reject":67,"./resolve":68,"buffer":10,"oMfpAn":14}],64:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -21610,10 +21669,8 @@ Promise.prototype.then = function (onFulfilled, onRejected) {
     return this;
   }
   var promise = new Promise(INTERNAL);
-
-  
   if (this.state !== states.PENDING) {
-    var resolver = this.state === states.FULFILLED ? onFulfilled: onRejected;
+    var resolver = this.state === states.FULFILLED ? onFulfilled : onRejected;
     unwrap(promise, resolver, this.outcome);
   } else {
     this.queue.push(new QueueItem(promise, onFulfilled, onRejected));
@@ -21623,7 +21680,7 @@ Promise.prototype.then = function (onFulfilled, onRejected) {
 };
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/lie/lib/promise.js","/../../node_modules/pouchdb/node_modules/lie/lib")
-},{"./INTERNAL":59,"./queueItem":64,"./resolveThenable":68,"./states":69,"./unwrap":71,"buffer":10,"oMfpAn":14}],64:[function(require,module,exports){
+},{"./INTERNAL":60,"./queueItem":65,"./resolveThenable":69,"./states":70,"./unwrap":72,"buffer":10,"oMfpAn":14}],65:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 var handlers = require('./handlers');
@@ -21653,8 +21710,9 @@ QueueItem.prototype.callRejected = function (value) {
 QueueItem.prototype.otherCallRejected = function (value) {
   unwrap(this.promise, this.onRejected, value);
 };
+
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/lie/lib/queueItem.js","/../../node_modules/pouchdb/node_modules/lie/lib")
-},{"./handlers":61,"./unwrap":71,"buffer":10,"oMfpAn":14}],65:[function(require,module,exports){
+},{"./handlers":62,"./unwrap":72,"buffer":10,"oMfpAn":14}],66:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 var Promise = require('./promise');
@@ -21674,10 +21732,9 @@ function race(iterable) {
     return resolve([]);
   }
 
-  var resolved = 0;
   var i = -1;
   var promise = new Promise(INTERNAL);
-  
+
   while (++i < len) {
     resolver(iterable[i]);
   }
@@ -21696,8 +21753,9 @@ function race(iterable) {
     });
   }
 }
+
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/lie/lib/race.js","/../../node_modules/pouchdb/node_modules/lie/lib")
-},{"./INTERNAL":59,"./handlers":61,"./promise":63,"./reject":66,"./resolve":67,"buffer":10,"oMfpAn":14}],66:[function(require,module,exports){
+},{"./INTERNAL":60,"./handlers":62,"./promise":64,"./reject":67,"./resolve":68,"buffer":10,"oMfpAn":14}],67:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -21711,7 +21769,7 @@ function reject(reason) {
 	return handlers.reject(promise, reason);
 }
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/lie/lib/reject.js","/../../node_modules/pouchdb/node_modules/lie/lib")
-},{"./INTERNAL":59,"./handlers":61,"./promise":63,"buffer":10,"oMfpAn":14}],67:[function(require,module,exports){
+},{"./INTERNAL":60,"./handlers":62,"./promise":64,"buffer":10,"oMfpAn":14}],68:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -21748,7 +21806,7 @@ function resolve(value) {
   }
 }
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/lie/lib/resolve.js","/../../node_modules/pouchdb/node_modules/lie/lib")
-},{"./INTERNAL":59,"./handlers":61,"./promise":63,"buffer":10,"oMfpAn":14}],68:[function(require,module,exports){
+},{"./INTERNAL":60,"./handlers":62,"./promise":64,"buffer":10,"oMfpAn":14}],69:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 var handlers = require('./handlers');
@@ -21783,15 +21841,16 @@ function safelyResolveThenable(self, thenable) {
 }
 exports.safely = safelyResolveThenable;
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/lie/lib/resolveThenable.js","/../../node_modules/pouchdb/node_modules/lie/lib")
-},{"./handlers":61,"./tryCatch":70,"buffer":10,"oMfpAn":14}],69:[function(require,module,exports){
+},{"./handlers":62,"./tryCatch":71,"buffer":10,"oMfpAn":14}],70:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 // Lazy man's symbols for states
 
 exports.REJECTED = ['REJECTED'];
 exports.FULFILLED = ['FULFILLED'];
 exports.PENDING = ['PENDING'];
+
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/lie/lib/states.js","/../../node_modules/pouchdb/node_modules/lie/lib")
-},{"buffer":10,"oMfpAn":14}],70:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],71:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -21809,7 +21868,7 @@ function tryCatch(func, value) {
   return out;
 }
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/lie/lib/tryCatch.js","/../../node_modules/pouchdb/node_modules/lie/lib")
-},{"buffer":10,"oMfpAn":14}],71:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],72:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -21833,7 +21892,7 @@ function unwrap(promise, func, value) {
   });
 }
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/lie/lib/unwrap.js","/../../node_modules/pouchdb/node_modules/lie/lib")
-},{"./handlers":61,"buffer":10,"immediate":72,"oMfpAn":14}],72:[function(require,module,exports){
+},{"./handlers":62,"buffer":10,"immediate":73,"oMfpAn":14}],73:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 var types = [
@@ -21844,38 +21903,22 @@ var types = [
   require('./timeout')
 ];
 var draining;
-var currentQueue;
-var queueIndex = -1;
 var queue = [];
-function cleanUpNextTick() {
-    draining = false;
-    if (currentQueue && currentQueue.length) {
-      queue = currentQueue.concat(queue);
-    } else {
-      queueIndex = -1;
-    }
-    if (queue.length) {
-      nextTick();
-    }
-}
-
 //named nextTick for less confusing stack traces
 function nextTick() {
   draining = true;
+  var i, oldQueue;
   var len = queue.length;
-  var timeout = setTimeout(cleanUpNextTick);
   while (len) {
-    currentQueue = queue;
+    oldQueue = queue;
     queue = [];
-    while (++queueIndex < len) {
-      currentQueue[queueIndex]();
+    i = -1;
+    while (++i < len) {
+      oldQueue[i]();
     }
-    queueIndex = -1;
     len = queue.length;
   }
-  queueIndex = -1;
   draining = false;
-  clearTimeout(timeout);
 }
 var scheduleDrain;
 var i = -1;
@@ -21893,7 +21936,7 @@ function immediate(task) {
   }
 }
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/lie/node_modules/immediate/lib/index.js","/../../node_modules/pouchdb/node_modules/lie/node_modules/immediate/lib")
-},{"./messageChannel":73,"./mutation.js":74,"./nextTick":9,"./stateChange":75,"./timeout":76,"buffer":10,"oMfpAn":14}],73:[function(require,module,exports){
+},{"./messageChannel":74,"./mutation.js":75,"./nextTick":9,"./stateChange":76,"./timeout":77,"buffer":10,"oMfpAn":14}],74:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -21914,7 +21957,7 @@ exports.install = function (func) {
   };
 };
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/lie/node_modules/immediate/lib/messageChannel.js","/../../node_modules/pouchdb/node_modules/lie/node_modules/immediate/lib")
-},{"buffer":10,"oMfpAn":14}],74:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],75:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 //based off rsvp https://github.com/tildeio/rsvp.js
@@ -21939,7 +21982,7 @@ exports.install = function (handle) {
   };
 };
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/lie/node_modules/immediate/lib/mutation.js","/../../node_modules/pouchdb/node_modules/lie/node_modules/immediate/lib")
-},{"buffer":10,"oMfpAn":14}],75:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],76:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -21966,7 +22009,7 @@ exports.install = function (handle) {
   };
 };
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/lie/node_modules/immediate/lib/stateChange.js","/../../node_modules/pouchdb/node_modules/lie/node_modules/immediate/lib")
-},{"buffer":10,"oMfpAn":14}],76:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],77:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 exports.test = function () {
@@ -21979,7 +22022,7 @@ exports.install = function (t) {
   };
 };
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/lie/node_modules/immediate/lib/timeout.js","/../../node_modules/pouchdb/node_modules/lie/node_modules/immediate/lib")
-},{"buffer":10,"oMfpAn":14}],77:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],78:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -22336,7 +22379,7 @@ function numToIndexableString(num) {
 }
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/pouchdb-collate/lib/index.js","/../../node_modules/pouchdb/node_modules/pouchdb-collate/lib")
-},{"./utils":78,"buffer":10,"oMfpAn":14}],78:[function(require,module,exports){
+},{"./utils":79,"buffer":10,"oMfpAn":14}],79:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -22409,7 +22452,7 @@ exports.intToDecimalForm = function (int) {
   return result;
 };
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/pouchdb-collate/lib/utils.js","/../../node_modules/pouchdb/node_modules/pouchdb-collate/lib")
-},{"buffer":10,"oMfpAn":14}],79:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],80:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 exports.Map = LazyMap; // TODO: use ES6 map
@@ -22483,7 +22526,7 @@ LazySet.prototype.delete = function (key) {
 };
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/pouchdb-collections/index.js","/../../node_modules/pouchdb/node_modules/pouchdb-collections")
-},{"buffer":10,"oMfpAn":14}],80:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],81:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 "use strict";
 
@@ -22666,7 +22709,7 @@ module.exports = extend;
 
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/pouchdb-extend/index.js","/../../node_modules/pouchdb/node_modules/pouchdb-extend")
-},{"buffer":10,"oMfpAn":14}],81:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],82:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -22747,7 +22790,7 @@ module.exports = function (opts) {
 };
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/pouchdb-mapreduce/create-view.js","/../../node_modules/pouchdb/node_modules/pouchdb-mapreduce")
-},{"./upsert":85,"./utils":86,"buffer":10,"oMfpAn":14}],82:[function(require,module,exports){
+},{"./upsert":86,"./utils":87,"buffer":10,"oMfpAn":14}],83:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -22757,7 +22800,7 @@ module.exports = function (func, emit, sum, log, isArray, toJSON) {
 };
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/pouchdb-mapreduce/evalfunc.js","/../../node_modules/pouchdb/node_modules/pouchdb-mapreduce")
-},{"buffer":10,"oMfpAn":14}],83:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],84:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -23631,7 +23674,7 @@ function BuiltInError(message) {
 
 utils.inherits(BuiltInError, Error);
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/pouchdb-mapreduce/index.js","/../../node_modules/pouchdb/node_modules/pouchdb-mapreduce")
-},{"./create-view":81,"./evalfunc":82,"./taskqueue":84,"./utils":86,"buffer":10,"oMfpAn":14,"pouchdb-collate":77}],84:[function(require,module,exports){
+},{"./create-view":82,"./evalfunc":83,"./taskqueue":85,"./utils":87,"buffer":10,"oMfpAn":14,"pouchdb-collate":78}],85:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 /*
@@ -23658,7 +23701,7 @@ TaskQueue.prototype.finish = function () {
 module.exports = TaskQueue;
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/pouchdb-mapreduce/taskqueue.js","/../../node_modules/pouchdb/node_modules/pouchdb-mapreduce")
-},{"./utils":86,"buffer":10,"oMfpAn":14}],85:[function(require,module,exports){
+},{"./utils":87,"buffer":10,"oMfpAn":14}],86:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -23668,7 +23711,7 @@ module.exports = function (db, doc, diffFun) {
   return upsert.apply(db, [doc, diffFun]);
 };
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/pouchdb-mapreduce/upsert.js","/../../node_modules/pouchdb/node_modules/pouchdb-mapreduce")
-},{"buffer":10,"oMfpAn":14,"pouchdb-upsert":87}],86:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14,"pouchdb-upsert":88}],87:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 /* istanbul ignore if */
@@ -23777,7 +23820,7 @@ exports.MD5 = function (string) {
   }
 };
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/pouchdb-mapreduce/utils.js","/../../node_modules/pouchdb/node_modules/pouchdb-mapreduce")
-},{"argsarray":54,"buffer":10,"crypto":9,"inherits":58,"lie":62,"oMfpAn":14,"pouchdb-extend":80,"spark-md5":88}],87:[function(require,module,exports){
+},{"argsarray":55,"buffer":10,"crypto":9,"inherits":59,"lie":63,"oMfpAn":14,"pouchdb-extend":81,"spark-md5":89}],88:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 
@@ -23884,7 +23927,7 @@ if (typeof window !== 'undefined' && window.PouchDB) {
 }
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/pouchdb-upsert/index.js","/../../node_modules/pouchdb/node_modules/pouchdb-upsert")
-},{"buffer":10,"lie":62,"oMfpAn":14}],88:[function(require,module,exports){
+},{"buffer":10,"lie":63,"oMfpAn":14}],89:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /*jshint bitwise:false*/
 /*global unescape*/
@@ -24487,7 +24530,7 @@ if (typeof window !== 'undefined' && window.PouchDB) {
 }));
 
 }).call(this,require("oMfpAn"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../../node_modules/pouchdb/node_modules/spark-md5/spark-md5.js","/../../node_modules/pouchdb/node_modules/spark-md5")
-},{"buffer":10,"oMfpAn":14}],89:[function(require,module,exports){
+},{"buffer":10,"oMfpAn":14}],90:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 'use strict';
 

@@ -9,9 +9,13 @@ var accountStore = require('../js/stores/AccountStore');
 var Window = gui.Window.get();
 Window.showDevTools();
 
+var $localContainer = undefined;
+var $networkContainer = undefined;
+
 var app = app || {};
 
 app.server = {};
+app.local = {};
 app.server.config = {
     host: '192.168.44.44',
     port: 22,
@@ -20,6 +24,7 @@ app.server.config = {
 };
 
 app.server.path = '.';
+app.local.path = '.';
 
 var Client = ssh2.Client;
 
@@ -37,10 +42,33 @@ var exeSftp = function(callback) {
     }).connect(app.server.config);
 };
 
-var clearFileList = function() {
+var clearFileList = function($container) {
     console.log('FileList::Clear');
-    $('.files').html('');
+    $container.html('');
 }
+
+/** LOCAL **/
+var listLocalDir = function() {
+    console.log('FileList::'+app.local.path);
+    fs.readdir(app.local.path, function(err, files) {
+        console.log('--err--');
+        console.log(err);
+        console.log('--files--');
+        console.log(files);
+        var filesArray = new Array();
+        files.forEach(function(file) {
+            var f = {
+                filename: file
+            };
+            filesArray.push(f);
+        });
+        updateFileList(filesArray, $localContainer);
+
+    });
+};
+
+
+/** NETWORK **/
 
 var enableDownloads = function() {
     $('.get').each(function(i, d) {
@@ -66,14 +94,15 @@ var enableDownloads = function() {
     });
 };
 
-var updateFileList = function(list) {
-    clearFileList();
+var updateFileList = function(list, $container) {
+    clearFileList($container);
     console.log('FileList::Update');
+    $container.append("<div class='file go-up'>[<a data-filename='..' class='get' href='#'>up</a>] .. </div>");
     list.forEach(function(file) {
-        $('.files').append("<div class='file'>[<a data-filename='"+file.filename+"' class='get' href='#'>get</a>] "+file.filename+"</div>");
+        $container.append("<div class='file'>[<a data-filename='"+file.filename+"' class='get' href='#'>get</a>] "+file.filename+"</div>");
     });
 
-    $('.files .file').each(function(i, d) {
+    $container.find('.file').each(function(i, d) {
         $(d).on('dragstart', function(e) {
             console.log(e);
             //e.originalEvent.dataTransfer.setData("DownloadURL",fileDetails);
@@ -88,13 +117,16 @@ var listCurrentDir = function() {
     exeSftp(function(sftp) {
         sftp.readdir(app.server.path, function(err, list) {
             if (err) throw err;
-            updateFileList(list);
+            updateFileList(list, $networkContainer);
             conn.end();
         });
     });
 };
 
 $(function() {
+
+    $localContainer = $('.local.files');
+    $networkContainer = $('.network.files');
 
     $('.connect').on('click', function(e) {
         e.preventDefault();
@@ -105,7 +137,7 @@ $(function() {
 
     $('.reload').on('click', function(e) {
         e.preventDefault();
-
+        listLocalDir();
         listCurrentDir();
     });
 

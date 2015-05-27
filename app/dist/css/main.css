@@ -88,5 +88,12 @@ html {
 .hover .drag-drop-hover {
   display: block; }
 
+.network.files {
+  border-left: 1px solid black; }
+
 .file {
+  padding: 5px 0;
   -webkit-app-region: drag; }
+
+.go-up {
+  background: lightcyan; }
